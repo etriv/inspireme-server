@@ -42,7 +42,7 @@ app.post('/signin', (req, res) => {
 
 app.post('/register', (req, res) => {
     const { email, name, password } = req.body;
-    // Insert into db
+    // Inserting into db:
     db('users')
         .returning('*')
         .insert({
@@ -54,6 +54,7 @@ app.post('/register', (req, res) => {
             res.json(response);
         })
         .catch(err => {
+            console.log(err);
             res.status(400).json("Failed registration.");
         });
 })
@@ -68,12 +69,42 @@ app.get('/profile/:id', (req, res) => {
                 res.status(400).json('User Not Found');
         })
         .catch(err => {
+            console.log(err);
             res.status(400).json('Error while getting user');
         });
 });
 
 app.listen(3001, () => {
     console.log('Server is running on port 3001.');
+});
+
+app.get('/inspirations/:type', (req, res) => {
+    const { type } = req.params;
+    db.select('*').from('inspirations').where('type', type)
+        .then(inspirations => {
+            if (inspirations.length)
+                res.json(inspirations);
+            else
+                res.status(400).json('Found no inspirations with type: ' + type);
+        })
+        .catch(err => {
+            console.log(err);
+            res.status(400).json('Error while getting inspirations');
+        });
+});
+
+app.get('/inspirations', (req, res) => {
+    db.select('*').from('inspirations')
+    .then(inspirations => {
+        if (inspirations.length)
+            res.json(inspirations);
+        else
+            res.status(400).json('Found no inspirations with type: ' + type);
+    })
+    .catch(err => {
+        console.log(err);
+        res.status(400).json('Error while getting inspirations');
+    });
 });
 
 /* Server functions:
