@@ -12,33 +12,21 @@ var db = require('knex')({
 });
 
 console.log('--- TESTING DB ---');
+
 // db('users').insert({
 //     email: 'test2@gmail.com',
 //     name: 'test user 2',
 //     joined: new Date()
 // }).then(console.log);
 
-db.select().from('users').then(data => {
-    console.log(data);
-});
+// db.select().from('users').then(data => {
+//     console.log(data);
+// });
 
 const app = express();
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
-
-const db_temp = {
-    users: [
-        {
-            id: "123",
-            name: "John",
-            email: "john@gmail.com",
-            password: "asdasd",
-            entries: 0,
-            joined: new Date()
-        }
-    ]
-};
 
 app.get('/', (req, res) => {
     res.send('Getting root...');
@@ -54,8 +42,35 @@ app.post('/signin', (req, res) => {
 
 app.post('/register', (req, res) => {
     const { email, name, password } = req.body;
-    // Push into db.
+    // Insert into db
+    db('users')
+        .returning('*')
+        .insert({
+            email: email,
+            name: name,
+            joined: new Date()
+        })
+        .then(response => {
+            res.json(response);
+        })
+        .catch(err => {
+            res.status(400).json("Failed registration.");
+        });
 })
+
+app.get('/profile/:id', (req, res) => {
+    const { id } = req.params;
+    db.select('*').from('users').where('id', id)
+        .then(user => {
+            if (user.length)
+                res.json(user[0]);
+            else
+                res.status(400).json('User Not Found');
+        })
+        .catch(err => {
+            res.status(400).json('Error while getting user');
+        });
+});
 
 app.listen(3001, () => {
     console.log('Server is running on port 3001.');
