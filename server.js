@@ -1,22 +1,33 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 
-var knex = require('knex')({
+var db = require('knex')({
     client: 'pg',
     connection: {
-      host : '127.0.0.1',
-      user : 'postgres',
-      password : '123456',
-      database : 'inspireme-db'
+        host: '127.0.0.1',
+        user: 'postgres',
+        password: '123456',
+        database: 'inspireme-db'
     }
-  });
+});
+
+console.log('--- TESTING DB ---');
+// db('users').insert({
+//     email: 'test2@gmail.com',
+//     name: 'test user 2',
+//     joined: new Date()
+// }).then(console.log);
+
+db.select().from('users').then(data => {
+    console.log(data);
+});
 
 const app = express();
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
-const db = {
+const db_temp = {
     users: [
         {
             id: "123",
@@ -42,7 +53,7 @@ app.post('/signin', (req, res) => {
 });
 
 app.post('/register', (req, res) => {
-    const {email, name, password} = req.body;
+    const { email, name, password } = req.body;
     // Push into db.
 })
 
