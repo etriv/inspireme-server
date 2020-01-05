@@ -23,16 +23,12 @@ CREATE TABLE public.inspirations
     title text COLLATE pg_catalog."default" NOT NULL,
     source text COLLATE pg_catalog."default" NOT NULL,
     image text COLLATE pg_catalog."default" NOT NULL,
-    type integer NOT NULL,
     likes integer NOT NULL DEFAULT 0,
     user_id integer NOT NULL,
-    tags text COLLATE pg_catalog."default" NOT NULL,
+    tags text[] COLLATE pg_catalog."default",
+    type character varying(20) COLLATE pg_catalog."default",
+    added timestamp without time zone,
     CONSTRAINT inspirations_pkey PRIMARY KEY (id),
-    CONSTRAINT "type to types.id" FOREIGN KEY (type)
-        REFERENCES public.types (id) MATCH SIMPLE
-        ON UPDATE NO ACTION
-        ON DELETE NO ACTION
-        NOT VALID,
     CONSTRAINT "user_id to users.id" FOREIGN KEY (user_id)
         REFERENCES public.users (id) MATCH SIMPLE
         ON UPDATE NO ACTION
