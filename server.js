@@ -1,5 +1,5 @@
 const express = require('express');
-const bodyParser = require('body-parser');
+var cors = require('cors')
 
 var db = require('knex')({
     client: 'pg',
@@ -17,6 +17,7 @@ const app = express();
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+app.use(cors());
 
 app.get('/', (req, res) => {
     res.send('Getting root... Yam yam yam!');
