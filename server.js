@@ -97,13 +97,14 @@ app.get('/inspirations', (req, res) => {
         }
         if (req.query.hasOwnProperty('tags')) {
             let query_tags = '';
-            const tags_arr = req.query.tags.split(',');
+            const tags_arr = req.query.tags.split(' ').join('').split(',');
             tags_arr.forEach(() => {
                 query_tags += '? = ANY (tags) or '
             });
             query_tags = query_tags.slice(0, -4); // Removing last 4 chars that contain the last 'or'
+            // Checking the resulting query:
             const full_query = builder.whereRaw(query_tags, tags_arr).toSQL().toNative();
-            console.log(full_query); // Checking the resulting query
+            console.log(full_query); 
         }
     })
     .then(inspirations => {
