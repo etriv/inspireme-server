@@ -96,12 +96,13 @@ app.get('/inspirations', (req, res) => {
                 throw new QueryException('Found no matching inspirations with the given type: ' + req.query.type);
         }
         if (req.query.hasOwnProperty('tags')) {
-            let query_tags = '';
             const tags_arr = req.query.tags.split(' ').join('').split(',');
+            let query_tags = '(';
             tags_arr.forEach(() => {
                 query_tags += '? = ANY (tags) or '
             });
             query_tags = query_tags.slice(0, -4); // Removing last 4 chars that contain the last 'or'
+            query_tags += ')';
             // Checking the resulting query:
             const full_query = builder.whereRaw(query_tags, tags_arr).toSQL().toNative();
             console.log(full_query); 
