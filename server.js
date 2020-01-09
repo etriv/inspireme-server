@@ -99,7 +99,7 @@ app.get('/inspirations', (req, res) => {
             const tags_arr = req.query.tags.split(' ').join('').split(',');
             let query_tags = '(';
             tags_arr.forEach(() => {
-                query_tags += '? = ANY (tags) or '
+                query_tags += '? = ANY (tags) and '
             });
             query_tags = query_tags.slice(0, -4); // Removing last 4 chars that contain the last 'or'
             query_tags += ')';
