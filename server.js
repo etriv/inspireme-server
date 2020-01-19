@@ -86,8 +86,18 @@ function QueryException(message) {
 
 app.get('/inspirations', (req, res) => {
     console.log('Query params: ',req.query);
+
+    // Figuring out the OrderBy query
+    let order_col = 'likes', order_dir = 'desc';    // Default OrderBy
+    if (req.query.hasOwnProperty('order')) {
+        order_by = req.query.order.split('_');
+        if (order_by.length === 2) {
+            order_col = order_by[0];
+            order_dir = order_by[1];
+        }
+    }
     
-    db.select('*').from('inspirations')
+    db.select('i.*', {user_name: 'u.name'}).from({i: 'inspirations'})
     .where(builder => {
         if (req.query.hasOwnProperty('type')) {
             if (allowed_types.includes(req.query.type))
@@ -108,6 +118,10 @@ app.get('/inspirations', (req, res) => {
             console.log(full_query); 
         }
     })
+    .innerJoin({u: 'users'}, 'i.user_id', 'u.id')
+    .orderBy(order_col, order_dir)
+    // limit - number of returned rows, offset - how many rows to skip beforehand (OrderBy is a must for consistency)
+    .limit(12).offset(0)                                   
     .then(inspirations => {
         if (inspirations.length)
             res.status(200).json(inspirations);
