@@ -1,5 +1,6 @@
 const express = require('express');
 var cors = require('cors')
+const bcrypt = require('bcryptjs');
 
 var db = require('knex')({
     client: 'pg',
@@ -28,25 +29,45 @@ app.get('/', (req, res) => {
 //////////////////////////////
 
 app.post('/signin', (req, res) => {
-    console.log(req.body);
-    if (req.body.email === db.users[0].email && req.body.password === db.users[0].password)
-        res.json('Success');
-    else
-        res.json('Failure');
+    // console.log(req.body);
+    const { name, password } = req.body;
+
+    db.select('id', 'password_hash').from('users').where('name', name)
+        .then(user => {
+            if (user.length) {
+                if (bcrypt.compareSync(password, user[0].password_hash)) {
+                    res.status(200).json('Successful sign-in. Welcome ' + name + '.');
+                }
+                else {
+                    res.status(400).json('Error: Password not matching.');   
+                }
+            }
+            else
+                res.status(400).json('Error: User name not found.');
+        })
+        .catch(err => {
+            console.log(err);
+            res.status(400).json('Error: Can not access user information.');
+        });
 });
 
 app.post('/register', (req, res) => {
-    const { email, name, password } = req.body;
+    const { name, password } = req.body;
+
+    // Hash the password
+    const salt = bcrypt.genSaltSync(8);
+    const hashed_password = bcrypt.hashSync(password, salt);
+
     // Inserting into db:
     db('users')
-        .returning('*')
+        .returning(['id', 'name'])
         .insert({
-            email: email,
             name: name,
+            password_hash: hashed_password,
             joined: new Date()
         })
-        .then(response => {
-            res.status(200).json(response);
+        .then(user => {
+            res.status(200).json(user[0]);
         })
         .catch(err => {
             console.log(err);
