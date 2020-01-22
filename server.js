@@ -39,15 +39,15 @@ app.post('/signin', (req, res) => {
                     res.status(200).json('Successful sign-in. Welcome ' + name + '.');
                 }
                 else {
-                    res.status(400).json('Error: Password not matching.');   
+                    res.status(400).json('Wrong password.');   
                 }
             }
             else
-                res.status(400).json('Error: User name not found.');
+                res.status(400).json('User name does not exist.');
         })
         .catch(err => {
             console.log(err);
-            res.status(400).json('Error: Can not access user information.');
+            res.status(400).json('Can not access user information.');
         });
 });
 
@@ -71,7 +71,12 @@ app.post('/register', (req, res) => {
         })
         .catch(err => {
             console.log(err);
-            res.status(400).json("Failed registration.");
+            if (err.constraint === 'Unique name') {
+                res.status(400).json("User name already exists.");
+            }
+            else {
+                res.status(400).json("Failed registration.");
+            }
         });
 })
 
