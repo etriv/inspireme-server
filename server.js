@@ -31,12 +31,17 @@ app.get('/', (req, res) => {
 app.post('/signin', (req, res) => {
     // console.log(req.body);
     const { name, password } = req.body;
+    if (!name || !password) {
+        res.status(400).json('Bad request params.');
+        return;
+    }
 
     db.select('id', 'password_hash').from('users').where('name', name)
         .then(user => {
             if (user.length) {
                 if (bcrypt.compareSync(password, user[0].password_hash)) {
-                    res.status(200).json('Successful sign-in. Welcome ' + name + '.');
+                    // Successful sign-in
+                    res.status(200).json({id: user[0].id, name: name});
                 }
                 else {
                     res.status(400).json('Wrong password.');   
@@ -53,6 +58,10 @@ app.post('/signin', (req, res) => {
 
 app.post('/register', (req, res) => {
     const { name, password } = req.body;
+    if (!name || !password) {
+        res.status(400).json('Bad request params.');
+        return;
+    }
 
     // Hash the password
     const salt = bcrypt.genSaltSync(8);
