@@ -44,22 +44,22 @@ app.post('/signin', (req, res) => {
                     res.status(200).json({id: user[0].id, name: name});
                 }
                 else {
-                    res.status(400).json('Wrong password.');   
+                    res.status(400).json('Wrong password');   
                 }
             }
             else
-                res.status(400).json('User name does not exist.');
+                res.status(400).json('User Name does not exist');
         })
         .catch(err => {
             console.log(err);
-            res.status(400).json('Can not access user information.');
+            res.status(400).json('Can not access user information');
         });
 });
 
 app.post('/register', (req, res) => {
     const { name, password } = req.body;
     if (!name || !password) {
-        res.status(400).json('Bad request params.');
+        res.status(400).json('Bad request params');
         return;
     }
 
@@ -81,10 +81,10 @@ app.post('/register', (req, res) => {
         .catch(err => {
             console.log(err);
             if (err.constraint === 'Unique name') {
-                res.status(400).json("User name already exists.");
+                res.status(400).json("User Name already exists");
             }
             else {
-                res.status(400).json("Failed registration.");
+                res.status(400).json("Failed registration");
             }
         });
 })
