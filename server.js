@@ -41,10 +41,10 @@ app.post('/signin', (req, res) => {
             if (user.length) {
                 if (bcrypt.compareSync(password, user[0].password_hash)) {
                     // Successful sign-in
-                    res.status(200).json({id: user[0].id, name: name});
+                    res.status(200).json({ id: user[0].id, name: name });
                 }
                 else {
-                    res.status(400).json('Wrong password');   
+                    res.status(400).json('Wrong password');
                 }
             }
             else
@@ -109,6 +109,88 @@ app.get('/profile/:id', (req, res) => {
 });
 
 //////////////////////////////
+// --- LIKES --- //
+//////////////////////////////
+
+// Handles liking of inspiration (+1)
+app.post('/like', (req, res) => {
+    const { user_id, insp_id } = req.body;
+    if (!user_id || !insp_id) {
+        res.status(400).json('Bad request params');
+        return;
+    }
+
+    // Inserting into like table:
+    db('likes')
+        .returning('id')
+        .insert({
+            user_id: user_id,
+            insp_id: insp_id,
+            date: new Date()
+        })
+        .then(entry => {
+            res.status(200).json(entry[0]);
+        })
+        .catch(err => {
+            console.log(err);
+            if (err.constraint === 'Something') {
+                res.status(400).json("Something happend at the server");
+            }
+            else {
+                res.status(400).json("Failed liking inspiration: User or Inspiration id doesn't exist");
+            }
+        });
+
+    // Update inspirations table likes column:
+    db('inspirations')
+        .where('id', '=', insp_id)
+        .increment('likes', 1)
+        .catch(err => {
+            console.log(err);
+        });
+})
+
+// Handles DIS-liking of inspiration (-1)
+app.post('/dislike', (req, res) => {
+    const { user_id, insp_id } = req.body;
+    if (!user_id || !insp_id) {
+        res.status(400).json('Bad request params');
+        return;
+    }
+
+    // Inserting into like table:
+    db('likes')
+        .returning(['id'])
+        .where({
+            user_id: user_id,
+            insp_id: insp_id
+        })
+        .del()
+        .then(entry => {
+            res.status(200).json(entry[0]);
+        })
+        .catch(err => {
+            console.log(err);
+            if (err.constraint === 'Something') {
+                res.status(400).json("Something happend at the server");
+            }
+            else {
+                res.status(400).json("Failed liking inspiration");
+            }
+        });
+
+    // Update inspirations table likes column:
+    db('inspirations')
+        .where('id', '=', insp_id)
+        .decrement('likes', 1)
+        .catch(err => {
+            console.log(err);
+        });
+})
+
+
+
+//////////////////////////////
 // --- INSPIRATIONS --- //
 //////////////////////////////
 
@@ -117,10 +199,10 @@ const allowed_types = ['video', 'image', 'page'];
 function QueryException(message) {
     this.message = message;
     this.name = 'QueryException';
- }
+}
 
 app.get('/inspirations', (req, res) => {
-    console.log('Query params: ',req.query);
+    console.log('Query params: ', req.query);
 
     // Figuring out the OrderBy query
     let order_col = 'likes', order_dir = 'desc';    // Default OrderBy
@@ -131,49 +213,49 @@ app.get('/inspirations', (req, res) => {
             order_dir = order_by[1];
         }
     }
-    
-    db.select('i.*', {user_name: 'u.name'}).from({i: 'inspirations'})
-    .where(builder => {
-        if (req.query.hasOwnProperty('type')) {
-            if (allowed_types.includes(req.query.type))
-                builder.where('type', req.query.type);
+
+    db.select('i.*', { user_name: 'u.name' }).from({ i: 'inspirations' })
+        .where(builder => {
+            if (req.query.hasOwnProperty('type')) {
+                if (allowed_types.includes(req.query.type))
+                    builder.where('type', req.query.type);
+                else
+                    throw new QueryException('Found no matching inspirations with the given type: ' + req.query.type);
+            }
+            if (req.query.hasOwnProperty('tags')) {
+                const tags_arr = req.query.tags.split(' ').join('').split(',');
+                let query_tags = '(';
+                tags_arr.forEach(() => {
+                    query_tags += '? = ANY (tags) and '
+                });
+                query_tags = query_tags.slice(0, -4); // Removing last 4 chars that contain the last 'or'
+                query_tags += ')';
+                // Checking the resulting query:
+                const full_query = builder.whereRaw(query_tags, tags_arr).toSQL().toNative();
+                console.log(full_query);
+            }
+        })
+        .innerJoin({ u: 'users' }, 'i.user_id', 'u.id')
+        .orderBy(order_col, order_dir)
+        // limit - number of returned rows, offset - how many rows to skip beforehand (OrderBy is a must for consistency)
+        .limit(12).offset(0)
+        .then(inspirations => {
+            if (inspirations.length)
+                res.status(200).json(inspirations);
             else
-                throw new QueryException('Found no matching inspirations with the given type: ' + req.query.type);
-        }
-        if (req.query.hasOwnProperty('tags')) {
-            const tags_arr = req.query.tags.split(' ').join('').split(',');
-            let query_tags = '(';
-            tags_arr.forEach(() => {
-                query_tags += '? = ANY (tags) and '
-            });
-            query_tags = query_tags.slice(0, -4); // Removing last 4 chars that contain the last 'or'
-            query_tags += ')';
-            // Checking the resulting query:
-            const full_query = builder.whereRaw(query_tags, tags_arr).toSQL().toNative();
-            console.log(full_query); 
-        }
-    })
-    .innerJoin({u: 'users'}, 'i.user_id', 'u.id')
-    .orderBy(order_col, order_dir)
-    // limit - number of returned rows, offset - how many rows to skip beforehand (OrderBy is a must for consistency)
-    .limit(12).offset(0)                                   
-    .then(inspirations => {
-        if (inspirations.length)
-            res.status(200).json(inspirations);
-        else
-            res.status(400).json('No matching inspirations for the query');
-    })
-    .catch(err => {
-        console.log(err);
-        if (err instanceof QueryException)
-            res.status(400).json(err.message);
-        else
-            res.status(400).json('Error while getting inspirations.');
-    });
+                res.status(400).json('No matching inspirations for the query');
+        })
+        .catch(err => {
+            console.log(err);
+            if (err instanceof QueryException)
+                res.status(400).json(err.message);
+            else
+                res.status(400).json('Error while getting inspirations.');
+        });
 });
 
 app.post('/inspirations', (req, res) => {
-    console.log('Post body: ',req.body);
+    console.log('Post body: ', req.body);
     const { title, source, image, user_id, tags, type } = req.body;
     // Inserting into db:
     db('inspirations')
@@ -204,7 +286,7 @@ app.listen(3001, () => {
     console.log('Server is running on port 3001.');
 });
 
-/* 
+/*
 Server functions:
 GET / --> "Getting root..."
 POST /register --> V: user / X: error msg
