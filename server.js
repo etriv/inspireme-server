@@ -129,7 +129,7 @@ app.post('/like', (req, res) => {
             date: new Date()
         })
         .then(entry => {
-            res.status(200).json(entry[0]);
+            res.status(200).json('Successfuly updated the DB');
         })
         .catch(err => {
             console.log(err);
@@ -167,7 +167,7 @@ app.post('/dislike', (req, res) => {
         })
         .del()
         .then(entry => {
-            res.status(200).json(entry[0]);
+            res.status(200).json('Successfuly updated the DB');
         })
         .catch(err => {
             console.log(err);
@@ -204,6 +204,8 @@ function QueryException(message) {
 app.get('/inspirations', (req, res) => {
     console.log('Query params: ', req.query);
 
+    cur_user = req.query.cur_user ? req.query.cur_user : 0;
+
     // Figuring out the OrderBy query
     let order_col = 'likes', order_dir = 'desc';    // Default OrderBy
     if (req.query.hasOwnProperty('order')) {
@@ -214,7 +216,7 @@ app.get('/inspirations', (req, res) => {
         }
     }
 
-    db.select('i.*', { user_name: 'u.name' }).from({ i: 'inspirations' })
+    db.select('i.*', { uploader_name: 'u.name', liked_by_me: 't3.id' }).from({ i: 'inspirations' })
         .where(builder => {
             if (req.query.hasOwnProperty('type')) {
                 if (allowed_types.includes(req.query.type))
@@ -236,6 +238,9 @@ app.get('/inspirations', (req, res) => {
             }
         })
         .innerJoin({ u: 'users' }, 'i.user_id', 'u.id')
+        .leftJoin(db.select('*').from('likes').where('user_id', Number(cur_user)).as('t3'), function() {
+            this.on('i.id', '=', 't3.insp_id');
+        })
         .orderBy(order_col, order_dir)
         // limit - number of returned rows, offset - how many rows to skip beforehand (OrderBy is a must for consistency)
         .limit(12).offset(0)
