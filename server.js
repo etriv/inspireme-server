@@ -205,6 +205,7 @@ app.get('/inspirations', (req, res) => {
     console.log('Query params: ', req.query);
 
     cur_user = req.query.cur_user ? req.query.cur_user : 0;
+    // The number 0 will not match any users on the liked table
 
     // Figuring out the OrderBy query
     let order_col = 'likes', order_dir = 'desc';    // Default OrderBy
