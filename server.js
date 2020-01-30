@@ -65,14 +65,14 @@ app.post('/register', (req, res) => {
 
     // Hash the password
     const salt = bcrypt.genSaltSync(8);
-    const hashed_password = bcrypt.hashSync(password, salt);
+    const hashedPassword = bcrypt.hashSync(password, salt);
 
     // Inserting into db:
     db('users')
         .returning(['id', 'name'])
         .insert({
             name: name,
-            password_hash: hashed_password,
+            password_hash: hashedPassword,
             joined: new Date()
         })
         .then(user => {
@@ -114,8 +114,8 @@ app.get('/profile/:id', (req, res) => {
 
 // Handles liking of inspiration (+1)
 app.post('/like', (req, res) => {
-    const { user_id, insp_id } = req.body;
-    if (!user_id || !insp_id) {
+    const { userId, inspId } = req.body;
+    if (!userId || !inspId) {
         res.status(400).json('Bad request params');
         return;
     }
@@ -124,8 +124,8 @@ app.post('/like', (req, res) => {
     db('likes')
         .returning('id')
         .insert({
-            user_id: user_id,
-            insp_id: insp_id,
+            user_id: userId,
+            insp_id: inspId,
             date: new Date()
         })
         .then(entry => {
@@ -143,7 +143,7 @@ app.post('/like', (req, res) => {
 
     // Update inspirations table likes column:
     db('inspirations')
-        .where('id', '=', insp_id)
+        .where('id', '=', inspId)
         .increment('likes', 1)
         .catch(err => {
             console.log(err);
@@ -152,8 +152,8 @@ app.post('/like', (req, res) => {
 
 // Handles DIS-liking of inspiration (-1)
 app.post('/dislike', (req, res) => {
-    const { user_id, insp_id } = req.body;
-    if (!user_id || !insp_id) {
+    const { userId, inspId } = req.body;
+    if (!userId || !inspId) {
         res.status(400).json('Bad request params');
         return;
     }
@@ -162,8 +162,8 @@ app.post('/dislike', (req, res) => {
     db('likes')
         .returning(['id'])
         .where({
-            user_id: user_id,
-            insp_id: insp_id
+            user_id: userId,
+            insp_id: inspId
         })
         .del()
         .then(entry => {
@@ -181,7 +181,7 @@ app.post('/dislike', (req, res) => {
 
     // Update inspirations table likes column:
     db('inspirations')
-        .where('id', '=', insp_id)
+        .where('id', '=', inspId)
         .decrement('likes', 1)
         .catch(err => {
             console.log(err);
@@ -194,7 +194,7 @@ app.post('/dislike', (req, res) => {
 // --- INSPIRATIONS --- //
 //////////////////////////////
 
-const allowed_types = ['video', 'image', 'page'];
+const allowedTypes = ['video', 'image', 'page'];
 
 function QueryException(message) {
     this.message = message;
@@ -204,45 +204,45 @@ function QueryException(message) {
 app.get('/inspirations', (req, res) => {
     console.log('Query params: ', req.query);
 
-    cur_user = req.query.cur_user ? req.query.cur_user : 0;
+    curUser = req.query.curUser ? req.query.curUser : 0;
     // The number 0 will not match any users on the liked table
 
     // Figuring out the OrderBy query
-    let order_col = 'likes', order_dir = 'desc';    // Default OrderBy
+    let orderCol = 'likes', orderDir = 'desc';    // Default OrderBy
     if (req.query.hasOwnProperty('order')) {
-        order_by = req.query.order.split('_');
-        if (order_by.length === 2) {
-            order_col = order_by[0];
-            order_dir = order_by[1];
+        orderBy = req.query.order.split('_');
+        if (orderBy.length === 2) {
+            orderCol = orderBy[0];
+            orderDir = orderBy[1];
         }
     }
 
-    db.select('i.*', { uploader_name: 'u.name', liked_by_me: 't3.id' }).from({ i: 'inspirations' })
+    db.select('i.*', { uploaderName: 'u.name', likedByMe: 't3.id' }).from({ i: 'inspirations' })
         .where(builder => {
             if (req.query.hasOwnProperty('type')) {
-                if (allowed_types.includes(req.query.type))
+                if (allowedTypes.includes(req.query.type))
                     builder.where('type', req.query.type);
                 else
                     throw new QueryException('Found no matching inspirations with the given type: ' + req.query.type);
             }
             if (req.query.hasOwnProperty('tags')) {
-                const tags_arr = req.query.tags.split(' ').join('').split(',');
-                let query_tags = '(';
-                tags_arr.forEach(() => {
-                    query_tags += '? = ANY (tags) and '
+                const tagsArr = req.query.tags.split(' ').join('').split(',');
+                let queryTags = '(';
+                tagsArr.forEach(() => {
+                    queryTags += '? = ANY (tags) and '
                 });
-                query_tags = query_tags.slice(0, -4); // Removing last 4 chars that contain the last 'or'
-                query_tags += ')';
+                queryTags = queryTags.slice(0, -4); // Removing last 4 chars that contain the last 'or'
+                queryTags += ')';
                 // Checking the resulting query:
-                const full_query = builder.whereRaw(query_tags, tags_arr).toSQL().toNative();
-                console.log(full_query);
+                const fullQuery = builder.whereRaw(queryTags, tagsArr).toSQL().toNative();
+                console.log(fullQuery);
             }
         })
         .innerJoin({ u: 'users' }, 'i.user_id', 'u.id')
-        .leftJoin(db.select('*').from('likes').where('user_id', Number(cur_user)).as('t3'), function() {
+        .leftJoin(db.select('*').from('likes').where('user_id', Number(curUser)).as('t3'), function() {
             this.on('i.id', '=', 't3.insp_id');
         })
-        .orderBy(order_col, order_dir)
+        .orderBy(orderCol, orderDir)
         // limit - number of returned rows, offset - how many rows to skip beforehand (OrderBy is a must for consistency)
         .limit(12).offset(0)
         .then(inspirations => {
@@ -262,7 +262,7 @@ app.get('/inspirations', (req, res) => {
 
 app.post('/inspirations', (req, res) => {
     console.log('Post body: ', req.body);
-    const { title, source, image, user_id, tags, type } = req.body;
+    const { title, source, image, userId, tags, type } = req.body;
     // Inserting into db:
     db('inspirations')
         .returning('*')
@@ -272,7 +272,7 @@ app.post('/inspirations', (req, res) => {
             image: image,
             type: type,
             tags: '{' + tags + '}',
-            user_id: user_id,
+            user_id: userId,
             added: new Date()
         })
         .then(response => {
