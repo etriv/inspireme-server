@@ -244,7 +244,7 @@ app.get('/inspirations', (req, res) => {
         })
         .orderBy(orderCol, orderDir)
         // limit - number of returned rows, offset - how many rows to skip beforehand (OrderBy is a must for consistency)
-        .limit(12).offset(0)
+        .limit(24).offset(0)
         .then(inspirations => {
             if (inspirations.length)
                 res.status(200).json(inspirations);
@@ -261,7 +261,7 @@ app.get('/inspirations', (req, res) => {
 });
 
 app.post('/inspirations', (req, res) => {
-    console.log('Post body: ', req.body);
+    // console.log('Post body: ', req.body);
     const { title, source, image, userId, tags, type } = req.body;
     // Inserting into db:
     db('inspirations')
