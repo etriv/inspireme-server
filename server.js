@@ -201,11 +201,72 @@ function QueryException(message) {
     this.name = 'QueryException';
 }
 
+function onlyLikedInspirations({ tags, type, order, curUser }) {
+    console.log(tags, type, order, curUser);
+    // SELECT insp.*, users.name as uploaderName, 1 as inspiredByMe
+    // FROM likes 
+    // INNER JOIN inspirations as insp ON likes.insp_id = insp.id
+    // INNER JOIN users ON insp.user_id = users.id
+    // WHERE likes.user_id = 49
+    db.select('i.*', { uploaderName: 'u.name', likedByMe: '9' }).from({ i: 'inspirations' })
+        .where(builder => {
+            if (req.query.hasOwnProperty('type')) {
+                if (allowedTypes.includes(req.query.type))
+                    builder.where('type', req.query.type);
+                else
+                    throw new QueryException('Found no matching inspirations with the given type: ' + req.query.type);
+            }
+            if (req.query.hasOwnProperty('tags')) {
+                const tagsArr = req.query.tags.split(' ').join('').split(',');
+                let queryTags = '(';
+                tagsArr.forEach(() => {
+                    queryTags += '? = ANY (tags) and '
+                });
+                queryTags = queryTags.slice(0, -4); // Removing last 4 chars that contain the last 'or'
+                queryTags += ')';
+                // Checking the resulting query:
+                const fullQuery = builder.whereRaw(queryTags, tagsArr).toSQL().toNative();
+                console.log(fullQuery);
+            }
+        })
+        .innerJoin({ u: 'users' }, 'i.user_id', 'u.id')
+        .leftJoin(db.select('*').from('likes').where('user_id', Number(curUser)).as('t3'), function () {
+            this.on('i.id', '=', 't3.insp_id');
+        })
+        .orderBy(orderCol, orderDir)
+        // limit - number of returned rows, offset - how many rows to skip beforehand (OrderBy is a must for consistency)
+        .limit(24).offset(0)
+        .then(inspirations => {
+            if (inspirations.length)
+                res.status(200).json(inspirations);
+            else
+                res.status(400).json('No matching inspirations for the query');
+        })
+        .catch(err => {
+            console.log(err);
+            if (err instanceof QueryException)
+                res.status(400).json(err.message);
+            else
+                res.status(400).json('Error while getting inspirations.');
+        });
+}
+
 app.get('/inspirations', (req, res) => {
     console.log('Query params: ', req.query);
 
-    curUser = req.query.curUser ? req.query.curUser : 0;
-    // The number 0 will not match any users on the liked table
+    const curUser = req.query.curUser ? req.query.curUser : 0; // The number 0 will not match any users on the liked table
+    const onlyLiked = req.query.onlyLiked ? true : false;
+
+    if (curUser !== 0 && onlyLiked) {
+        try {
+            const inspirations = onlyLikedInspirations(req.query);
+            res.status(200).json(inspirations);
+        }
+        catch {
+            res.status(400).json('No matching inspirations for the query');
+        }
+        return;
+    }
 
     // Figuring out the OrderBy query
     let orderCol = 'likes', orderDir = 'desc';    // Default OrderBy
@@ -239,7 +300,7 @@ app.get('/inspirations', (req, res) => {
             }
         })
         .innerJoin({ u: 'users' }, 'i.user_id', 'u.id')
-        .leftJoin(db.select('*').from('likes').where('user_id', Number(curUser)).as('t3'), function() {
+        .leftJoin(db.select('*').from('likes').where('user_id', Number(curUser)).as('t3'), function () {
             this.on('i.id', '=', 't3.insp_id');
         })
         .orderBy(orderCol, orderDir)
