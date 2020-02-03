@@ -201,23 +201,42 @@ function QueryException(message) {
     this.name = 'QueryException';
 }
 
+function getOrderColAndDir(order) {
+    let orderCol = 'likes', orderDir = 'desc';    // Default OrderBy
+    if (order) {
+        orderBy = order.split('_');
+        if (orderBy.length === 2) {
+            orderCol = orderBy[0];
+            orderDir = orderBy[1];
+        }
+    }
+    return [orderCol, orderDir];
+}
+
 function onlyLikedInspirations({ tags, type, order, curUser }) {
     console.log(tags, type, order, curUser);
+
+    // Figuring out the OrderBy query
+    const [orderCol, orderDir] = getOrderColAndDir(order);
+ 
     // SELECT insp.*, users.name as uploaderName, 1 as inspiredByMe
     // FROM likes 
     // INNER JOIN inspirations as insp ON likes.insp_id = insp.id
     // INNER JOIN users ON insp.user_id = users.id
     // WHERE likes.user_id = 49
-    db.select('i.*', { uploaderName: 'u.name', likedByMe: '9' }).from({ i: 'inspirations' })
+    return db.select('insp.*', { uploaderName: 'users.name', likedByMe: 'users.id'}).from('likes')
+        .innerJoin({insp: 'inspirations'}, 'likes.insp_id', 'insp.id')
+        .innerJoin('users', 'insp.user_id', 'users.id')
         .where(builder => {
-            if (req.query.hasOwnProperty('type')) {
-                if (allowedTypes.includes(req.query.type))
-                    builder.where('type', req.query.type);
+            builder.where('likes.user_id', Number(curUser));
+            if (type) {
+                if (allowedTypes.includes(type))
+                    builder.where('type', type);
                 else
-                    throw new QueryException('Found no matching inspirations with the given type: ' + req.query.type);
+                    throw new QueryException('Found no matching inspirations with the given type: ' + type);
             }
-            if (req.query.hasOwnProperty('tags')) {
-                const tagsArr = req.query.tags.split(' ').join('').split(',');
+            if (tags) {
+                const tagsArr = tags.split(' ').join('').split(',');
                 let queryTags = '(';
                 tagsArr.forEach(() => {
                     queryTags += '? = ANY (tags) and '
@@ -229,25 +248,21 @@ function onlyLikedInspirations({ tags, type, order, curUser }) {
                 console.log(fullQuery);
             }
         })
-        .innerJoin({ u: 'users' }, 'i.user_id', 'u.id')
-        .leftJoin(db.select('*').from('likes').where('user_id', Number(curUser)).as('t3'), function () {
-            this.on('i.id', '=', 't3.insp_id');
-        })
         .orderBy(orderCol, orderDir)
         // limit - number of returned rows, offset - how many rows to skip beforehand (OrderBy is a must for consistency)
         .limit(24).offset(0)
         .then(inspirations => {
             if (inspirations.length)
-                res.status(200).json(inspirations);
+                return inspirations;
             else
-                res.status(400).json('No matching inspirations for the query');
+                throw new QueryException('No matching inspirations for the query');
         })
         .catch(err => {
             console.log(err);
             if (err instanceof QueryException)
-                res.status(400).json(err.message);
+                throw err;
             else
-                res.status(400).json('Error while getting inspirations.');
+                throw new QueryException('Error while getting inspirations.');
         });
 }
 
@@ -257,27 +272,21 @@ app.get('/inspirations', (req, res) => {
     const curUser = req.query.curUser ? req.query.curUser : 0; // The number 0 will not match any users on the liked table
     const onlyLiked = req.query.onlyLiked ? true : false;
 
+    // In case we want only inspirations liked by current user
     if (curUser !== 0 && onlyLiked) {
-        try {
-            const inspirations = onlyLikedInspirations(req.query);
+        onlyLikedInspirations(req.query).then(inspirations => {
             res.status(200).json(inspirations);
-        }
-        catch {
+        })
+        .catch(err => {
             res.status(400).json('No matching inspirations for the query');
-        }
+        }); 
         return;
     }
 
     // Figuring out the OrderBy query
-    let orderCol = 'likes', orderDir = 'desc';    // Default OrderBy
-    if (req.query.hasOwnProperty('order')) {
-        orderBy = req.query.order.split('_');
-        if (orderBy.length === 2) {
-            orderCol = orderBy[0];
-            orderDir = orderBy[1];
-        }
-    }
+    const [orderCol, orderDir] = getOrderColAndDir(req.query.order);
 
+    // Building query with params recieved by req.query
     db.select('i.*', { uploaderName: 'u.name', likedByMe: 't3.id' }).from({ i: 'inspirations' })
         .where(builder => {
             if (req.query.hasOwnProperty('type')) {
