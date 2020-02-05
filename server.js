@@ -1,6 +1,7 @@
 const express = require('express');
 var cors = require('cors')
 const bcrypt = require('bcryptjs');
+const fetch = require('node-fetch');
 
 var db = require('knex')({
     client: 'pg',
@@ -354,6 +355,21 @@ app.post('/inspirations', (req, res) => {
         });
 });
 
+app.post('/check/content-type', (req, res) => {
+    const { url } = req.body;
+    fetch(url, {
+        method: 'get'
+    })
+        .then(response => {
+            // console.log(response.status, response.headers, response.headers.get('content-type'));
+            res.status(response.status).json({contentType: response.headers.get('content-type'), status: response.status});
+        })
+        .catch(error => {
+            console.log('Error:', error);
+            res.status(404).json('Could not fetch resource');
+        });
+});
+
 /////////////////////////////////
 // --- STARTING THE SERVER --- //
 /////////////////////////////////
@@ -361,44 +377,3 @@ app.post('/inspirations', (req, res) => {
 app.listen(3001, () => {
     console.log('Server is running on port 3001.');
 });
-
-/*
-Server functions:
-GET / --> "Getting root..."
-POST /register --> V: user / X: error msg
-POST /sign-in --> V: user / X: error msg
-GET /profile/:id --> user
-*/
-
-// *** Old code to handle the existence of a Types table
-// // Mapping TYPES to thier corrsponding ID
-// // types is being used later to build queries
-// let types = {};
-// db.select('*').from('types').then(result => {
-//     console.log(result);
-//     result.forEach(row => {
-//         types[row.type] = row.id;
-//     });
-//     console.log(types);
-// });
-
-// app.get('/inspirations', (req, res) => {
-//     console.log(req.query);
-
-//     db.select('*').from('inspirations')
-//     .where(builder => {
-//         if (req.query.hasOwnProperty('type') && types.hasOwnProperty(req.query.type)) {
-//             builder.where('type', types[req.query.type])
-//         }
-//     })
-//     .then(inspirations => {
-//         if (inspirations.length)
-//             res.json(inspirations);
-//         else
-//             res.status(400).json('Found no matching inspirations');
-//     })
-//     .catch(err => {
-//         console.log(err);
-//         res.status(400).json('Error while getting inspirations');
-//     });
-// });
