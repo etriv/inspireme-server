@@ -3,6 +3,7 @@ var cors = require('cors')
 const bcrypt = require('bcryptjs');
 const fetch = require('node-fetch');
 
+// REMOTE connection
 var db = require('knex')({
     client: 'pg',
     connection: {
@@ -11,6 +12,7 @@ var db = require('knex')({
     }
 });
 
+// // LOCAL connection
 // var db = require('knex')({
 //     client: 'pg',
 //     connection: {
