@@ -6,12 +6,20 @@ const fetch = require('node-fetch');
 var db = require('knex')({
     client: 'pg',
     connection: {
-        host: '127.0.0.1',
-        user: 'postgres',
-        password: '123456',
-        database: 'inspireme-db'
+        connectionString: process.env.DATABASE_URL,
+        ssl: true,
     }
 });
+
+// var db = require('knex')({
+//     client: 'pg',
+//     connection: {
+//         host: '127.0.0.1',
+//         user: 'postgres',
+//         password: '123456',
+//         database: 'inspireme-db'
+//     }
+// });
 
 console.log('--- TESTING DB ---');
 // console.log(process.env);
