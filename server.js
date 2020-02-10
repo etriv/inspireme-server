@@ -14,6 +14,7 @@ var db = require('knex')({
 });
 
 console.log('--- TESTING DB ---');
+// console.log(process.env);
 
 const app = express();
 
@@ -374,6 +375,6 @@ app.post('/check/content-type', (req, res) => {
 // --- STARTING THE SERVER --- //
 /////////////////////////////////
 
-app.listen(3001, () => {
-    console.log('Server is running on port 3001.');
+app.listen(process.env.PORT || 3001, () => {
+    console.log('Server is running on port 3001 or PORT:', process.env.PORT);
 });
