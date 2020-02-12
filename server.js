@@ -2,26 +2,32 @@ const express = require('express');
 var cors = require('cors')
 const bcrypt = require('bcryptjs');
 const fetch = require('node-fetch');
+const localEnv = true;
 
-// REMOTE connection
-// var db = require('knex')({
-//     client: 'pg',
-//     connection: {
-//         connectionString: process.env.DATABASE_URL,
-//         ssl: true,
-//     }
-// });
+var db;
+if (localEnv) {
+    db = require('knex')({
+        client: 'pg',
+        connection: {
+            host: '127.0.0.1',
+            user: 'postgres',
+            password: '123456',
+            database: 'inspireme-db'
+        }
+    });
+}
+else {
+    db = require('knex')({
+        client: 'pg',
+        connection: {
+            connectionString: process.env.DATABASE_URL,
+            ssl: true,
+        }
+    });
+}
 
-// // LOCAL connection
-var db = require('knex')({
-    client: 'pg',
-    connection: {
-        host: '127.0.0.1',
-        user: 'postgres',
-        password: '123456',
-        database: 'inspireme-db'
-    }
-});
+
+
 
 console.log('--- TESTING DB ---');
 // console.log(process.env);
@@ -31,6 +37,17 @@ const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(cors());
+
+// Handling middle-ware errors
+app.use((err, req, res, next) => {
+    // This check makes sure this is a JSON parsing issue, but it might be coming from any middleware
+    if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+        console.error(err);
+        return res.sendStatus(400); // Bad request
+    }
+
+    next();
+});
 
 app.get('/', (req, res) => {
     res.send('Getting root... Yam yam yam!');
@@ -43,7 +60,7 @@ app.get('/', (req, res) => {
 app.post('/signin', (req, res) => {
     // console.log(req.body);
     const { name, password } = req.body;
-    if (!name || !password) {
+    if (!name || !password || name.length > 50 || password.length > 50) {
         res.status(400).json('Bad request params.');
         return;
     }
@@ -70,7 +87,7 @@ app.post('/signin', (req, res) => {
 
 app.post('/register', (req, res) => {
     const { name, password } = req.body;
-    if (!name || !password) {
+    if (!name || !password || name.length > 50 || password.length > 50) {
         res.status(400).json('Bad request params');
         return;
     }
@@ -107,7 +124,13 @@ app.post('/register', (req, res) => {
 
 app.get('/profile/:id', (req, res) => {
     const { id } = req.params;
-    db.select('*').from('users').where('id', id)
+
+    if (!Number(id)) {
+        res.status(400).json('Bad request params');
+        return;
+    }
+
+    db.select('id', 'name', 'joined').from('users').where('id', id)
         .then(user => {
             if (user.length)
                 res.json(user[0]);
@@ -127,7 +150,8 @@ app.get('/profile/:id', (req, res) => {
 // Handles liking of inspiration (+1)
 app.post('/like', (req, res) => {
     const { userId, inspId } = req.body;
-    if (!userId || !inspId) {
+
+    if (!userId || !inspId || !Number(userId) || !Number(inspId)) {
         res.status(400).json('Bad request params');
         return;
     }
@@ -165,7 +189,8 @@ app.post('/like', (req, res) => {
 // Handles DIS-liking of inspiration (-1)
 app.post('/dislike', (req, res) => {
     const { userId, inspId } = req.body;
-    if (!userId || !inspId) {
+
+    if (!userId || !inspId || !Number(userId) || !Number(inspId)) {
         res.status(400).json('Bad request params');
         return;
     }
@@ -230,14 +255,14 @@ function onlyLikedInspirations({ tags, type, order, curUser }) {
 
     // Figuring out the OrderBy query
     const [orderCol, orderDir] = getOrderColAndDir(order);
- 
+
     // SELECT insp.*, users.name as uploaderName, 1 as inspiredByMe
     // FROM likes 
     // INNER JOIN inspirations as insp ON likes.insp_id = insp.id
     // INNER JOIN users ON insp.user_id = users.id
-    // WHERE likes.user_id = 49
-    return db.select('insp.*', { uploaderName: 'users.name', likedByMe: 'users.id'}).from('likes')
-        .innerJoin({insp: 'inspirations'}, 'likes.insp_id', 'insp.id')
+    // WHERE likes.user_id = ?
+    return db.select('insp.*', { uploaderName: 'users.name', likedByMe: 'users.id' }).from('likes')
+        .innerJoin({ insp: 'inspirations' }, 'likes.insp_id', 'insp.id')
         .innerJoin('users', 'insp.user_id', 'users.id')
         .where(builder => {
             builder.where('likes.user_id', Number(curUser));
@@ -281,17 +306,19 @@ function onlyLikedInspirations({ tags, type, order, curUser }) {
 app.get('/inspirations', (req, res) => {
     console.log('Query params: ', req.query);
 
+    // const {tags, type, order, curUser, onlyLiked} = req.query; // Good enough checks ahead
+
     const curUser = req.query.curUser ? req.query.curUser : 0; // The number 0 will not match any users on the liked table
-    const onlyLiked = req.query.onlyLiked ? true : false;
+    const onlyLiked = req.query.onlyLiked;
 
     // In case we want only inspirations liked by current user
     if (curUser !== 0 && onlyLiked) {
         onlyLikedInspirations(req.query).then(inspirations => {
             res.status(200).json(inspirations);
         })
-        .catch(err => {
-            res.status(400).json('No matching inspirations for the query');
-        }); 
+            .catch(err => {
+                res.status(400).json('No matching inspirations for the query');
+            });
         return;
     }
 
@@ -345,6 +372,13 @@ app.get('/inspirations', (req, res) => {
 app.post('/inspirations', (req, res) => {
     // console.log('Post body: ', req.body);
     const { title, source, image, userId, tags, type } = req.body;
+
+    if (!title || !source || !image || !userId || !tags || !type
+        && allowedTypes.includes(type)) {
+        res.status(400).json('Bad request params');
+        return;
+    }
+
     // Inserting into db:
     db('inspirations')
         .returning('*')
@@ -368,12 +402,18 @@ app.post('/inspirations', (req, res) => {
 
 app.post('/check/content-type', (req, res) => {
     const { url } = req.body;
+
+    if (!url) {
+        res.status(400).json('Bad request params');
+        return;
+    }
+
     fetch(url, {
         method: 'get'
     })
         .then(response => {
             // console.log(response.status, response.headers, response.headers.get('content-type'));
-            res.status(response.status).json({contentType: response.headers.get('content-type'), status: response.status});
+            res.status(response.status).json({ contentType: response.headers.get('content-type'), status: response.status });
         })
         .catch(error => {
             console.log('Error:', error);
