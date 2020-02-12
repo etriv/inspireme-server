@@ -4,24 +4,24 @@ const bcrypt = require('bcryptjs');
 const fetch = require('node-fetch');
 
 // REMOTE connection
-var db = require('knex')({
-    client: 'pg',
-    connection: {
-        connectionString: process.env.DATABASE_URL,
-        ssl: true,
-    }
-});
-
-// // LOCAL connection
 // var db = require('knex')({
 //     client: 'pg',
 //     connection: {
-//         host: '127.0.0.1',
-//         user: 'postgres',
-//         password: '123456',
-//         database: 'inspireme-db'
+//         connectionString: process.env.DATABASE_URL,
+//         ssl: true,
 //     }
 // });
+
+// // LOCAL connection
+var db = require('knex')({
+    client: 'pg',
+    connection: {
+        host: '127.0.0.1',
+        user: 'postgres',
+        password: '123456',
+        database: 'inspireme-db'
+    }
+});
 
 console.log('--- TESTING DB ---');
 // console.log(process.env);
@@ -331,7 +331,7 @@ app.get('/inspirations', (req, res) => {
             if (inspirations.length)
                 res.status(200).json(inspirations);
             else
-                res.status(400).json('No matching inspirations for the query');
+                res.status(200).json('No matching inspirations for the query');
         })
         .catch(err => {
             console.log(err);
