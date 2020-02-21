@@ -307,6 +307,7 @@ app.get('/inspirations', (req, res) => {
     console.log('Query params: ', req.query);
 
     // const {tags, type, order, curUser, onlyLiked} = req.query; // Good enough checks ahead
+    const {limit, offset} =  req.query;
 
     const curUser = req.query.curUser ? req.query.curUser : 0; // The number 0 will not match any users on the liked table
     const onlyLiked = req.query.onlyLiked;
@@ -353,7 +354,7 @@ app.get('/inspirations', (req, res) => {
         })
         .orderBy(orderCol, orderDir)
         // limit - number of returned rows, offset - how many rows to skip beforehand (OrderBy is a must for consistency)
-        .limit(24).offset(0)
+        .limit(limit).offset(offset)
         .then(inspirations => {
             if (inspirations.length)
                 res.status(200).json(inspirations);
