@@ -1,18 +1,18 @@
+require('dotenv').config();
 const express = require('express');
-var cors = require('cors')
+var cors = require('cors');
 const bcrypt = require('bcryptjs');
 const fetch = require('node-fetch');
-const localEnv = true;
 
 var db;
-if (localEnv) {
+if (process.env.ENV_NAME === 'local') {
     db = require('knex')({
         client: 'pg',
         connection: {
-            host: '127.0.0.1',
-            user: 'postgres',
-            password: '123456',
-            database: 'inspireme-db'
+            host: process.env.DB_HOST,
+            user: process.env.DB_USER,
+            password: process.env.DB_PASS,
+            database: process.env.DB_NAME
         }
     });
 }
@@ -26,10 +26,6 @@ else {
     });
 }
 
-
-
-
-console.log('--- TESTING DB ---');
 // console.log(process.env);
 
 const app = express();
